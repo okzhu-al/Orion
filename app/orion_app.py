@@ -62,18 +62,30 @@ def median_abs_close_delta(prices: np.ndarray) -> float:
 
 def resample_series_by_tf(dates_list, prices_list, tf: str):
     """Return (dates_array, prices_array) resampled by timeframe.
+
     D: daily (no change)
     W: weekly (last close of week, Friday anchored)
     M: monthly (last close of month)
+
+    If the latest bar does not align with the natural period end (e.g. the
+    current week or month has not finished), the returned series will use the
+    last available trading day as the endpoint instead of the calendar period
+    end so that the most recent partial period is still plotted.
     """
     s = pd.Series(np.asarray(prices_list, dtype=float), index=pd.DatetimeIndex(dates_list))
     if tf == "W":
         sr = s.resample("W-FRI").last().dropna()
     elif tf == "M":
-        sr = s.resample("M").last().dropna()
+        sr = s.resample("ME").last().dropna()
     else:
         sr = s.dropna()
-    return sr.index.to_numpy(), sr.values.astype(float)
+
+    dates = sr.index.to_numpy()
+    if tf in ("W", "M") and len(dates) > 0:
+        last_orig = pd.DatetimeIndex(dates_list)[-1]
+        if dates[-1] > last_orig.to_datetime64():
+            dates[-1] = last_orig.to_datetime64()
+    return dates, sr.values.astype(float)
 
 # ---- unit precision (4 decimals) ----
 DEC_PLACES = 4
