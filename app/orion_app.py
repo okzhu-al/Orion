@@ -408,9 +408,6 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
         )
         return fig
 
-    # bar indices within selected range (used to keep Gann lines straight)
-    bars = np.arange(n)
-
     fig = go.Figure()
 
     # price line
@@ -451,7 +448,8 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
             continue
         b_sel_idx = int(b_sel_idx[0])
         b_px = prices[b_sel_idx]
-        x_rel = bars[b_sel_idx:] - bars[b_sel_idx]
+        full_range = pd.date_range(dates[b_sel_idx], dates[-1], freq="D")
+        x_rel = (full_range - dates[b_sel_idx]) / np.timedelta64(1, "D")
 
         # choose direction sign: +1 up, -1 down
         if fan_dir == "up":
@@ -472,7 +470,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
                 # if completely outside, still draw the first point to indicate origin
                 mask_vis = np.zeros_like(y, dtype=bool)
                 mask_vis[0] = True
-            x_plot = dates[b_sel_idx:][mask_vis]
+            x_plot = full_range[mask_vis]
             y_plot = y[mask_vis]
 
             line_style = dict(width=1)
@@ -504,14 +502,14 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
 
     # X-axis (dates)
     fig.update_xaxes(
-        showspikes=True, spikemode="across+toaxis", spikesnap="data",
-        spikecolor="#aaa", spikethickness=1, side="top",
+        showspikes=True, spikemode="across", spikesnap="data",
+        spikecolor="#aaa", spikethickness=1,
         tickformat="%Y-%m-%d", hoverformat="%Y-%m-%d", tickangle=20
     )
 
     fig.update_yaxes(
-        range=[ymin - pad, ymax + pad], showspikes=True, spikemode="across+toaxis",
-        spikesnap="cursor", spikecolor="#aaa", spikethickness=1, side="right"
+        range=[ymin - pad, ymax + pad], showspikes=True, spikemode="across",
+        spikesnap="cursor", spikecolor="#aaa", spikethickness=1
     )
 
     du = DEFAULT_UNIT if default_unit_local is None else default_unit_local
@@ -526,7 +524,22 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
         clickmode="event+select",
         hovermode="x",
         spikedistance=-1,
-        hoverdistance=50
+        hoverdistance=50,
+        xaxis2=dict(
+            matches="x", overlaying="x", side="top",
+            showgrid=False, showline=False, zeroline=False,
+            showticklabels=False,
+            showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
+            spikecolor="#aaa", spikethickness=1,
+            tickformat="%Y-%m-%d", hoverformat="%Y-%m-%d"
+        ),
+        yaxis2=dict(
+            matches="y", overlaying="y", side="right",
+            showgrid=False, showline=False, zeroline=False,
+            showticklabels=False,
+            showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
+            spikecolor="#aaa", spikethickness=1
+        )
     )
     return fig
 
