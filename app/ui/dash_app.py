@@ -4,16 +4,13 @@ import json
 import numpy as np
 import pandas as pd
 import dash
-
 from dash import dcc, html, Input, Output, State, callback_context, no_update, exceptions
-
 import plotly.graph_objects as go
 
 from app.data.loader import load_price_volume, _extract_price_volume
 from app.data.timeframe import resample_series_by_tf, nearest_trading_day_in
 from app.models.gann import ANGLES, DEC_PLACES, SCALE, median_abs_close_delta, compute_unit
 from app.chart.figure import build_figure
-
 from version import __version__
 
 EXCEL_PATH = "data/399006.xlsx"
@@ -429,6 +426,5 @@ def _hover_price_label(hoverData, fig_json):
     m = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
     if m.get("r", 40) < 80:
         fig.update_layout(margin=dict(l=m.get("l", 20), r=80, t=m.get("t", 60), b=m.get("b", 40)))
-
 
     return fig
