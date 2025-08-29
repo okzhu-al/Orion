@@ -69,7 +69,7 @@ app.layout = html.Div(
             id="uploader",
             children=html.Div(["拖拽或", html.A("选择CSV/XLSX文件")]),
             multiple=False,
-            style={"width":"100%","height":"46px","lineHeight":"46px","
+            style={"width":"100%","height":"46px","lineHeight":"46px",
                    "borderWidth":"1px","borderStyle":"dashed","borderRadius":"6px",
                    "textAlign":"center","marginBottom":"16px","background":"#fafafa"}
         ),
