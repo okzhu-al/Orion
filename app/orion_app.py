@@ -88,20 +88,26 @@ def resample_series_by_tf(dates_list, prices_list, tf: str, volumes_list=None):
     last available trading day as the endpoint instead of the calendar period
     end so that the most recent partial period is still plotted.
     """
+
     s = pd.Series(np.asarray(prices_list, dtype=float), index=pd.DatetimeIndex(dates_list))
     v = None
     if volumes_list is not None:
         v = pd.Series(np.asarray(volumes_list, dtype=float), index=pd.DatetimeIndex(dates_list))
 
-    if tf == "W":
-        sr = s.resample("W-FRI").last().dropna()
-        vr = v.resample("W-FRI").sum().dropna() if v is not None else None
-    elif tf == "M":
-        sr = s.resample("ME").last().dropna()
-        vr = v.resample("ME").sum().dropna() if v is not None else None
-    else:
+    if tf == "D":
         sr = s.dropna()
-        vr = v.dropna() if v is not None else None
+        if v is not None:
+            vr = v.reindex(sr.index).fillna(0.0)
+    else:
+        freq = "W-FRI" if tf == "W" else "ME"
+        sr = s.resample(freq).last()
+        if v is not None:
+            vr = v.resample(freq).sum()
+            df = pd.concat([sr, vr], axis=1).dropna()
+            sr = df.iloc[:, 0]
+            vr = df.iloc[:, 1]
+        else:
+            sr = sr.dropna()
 
     dates = sr.index.to_numpy()
     if tf in ("W", "M") and len(dates) > 0:
@@ -109,7 +115,7 @@ def resample_series_by_tf(dates_list, prices_list, tf: str, volumes_list=None):
         if dates[-1] > last_orig.to_datetime64():
             dates[-1] = last_orig.to_datetime64()
 
-    if vr is not None:
+    if volumes_list is not None:
         return dates, sr.values.astype(float), vr.values.astype(float)
     return dates, sr.values.astype(float)
 
@@ -528,7 +534,8 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
         xaxis2=dict(
             matches="x", overlaying="x", side="top",
             showgrid=False, showline=False, zeroline=False,
-            showticklabels=False,
+            tickmode="array", tickvals=[], ticks="",
+            showticklabels=True,
             showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
             spikecolor="#aaa", spikethickness=1,
             tickformat="%Y-%m-%d", hoverformat="%Y-%m-%d"
@@ -536,7 +543,8 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
         yaxis2=dict(
             matches="y", overlaying="y", side="right",
             showgrid=False, showline=False, zeroline=False,
-            showticklabels=False,
+            tickmode="array", tickvals=[], ticks="",
+            showticklabels=True,
             showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
             spikecolor="#aaa", spikethickness=1
         )
