@@ -1,0 +1,79 @@
+# ============================
+# Python
+# ============================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.egg
+*.manifest
+*.spec
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# ============================
+# macOS
+# ============================
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# ============================
+# Editors / IDEs
+# ============================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+
+# ============================
+# Logs / Debug
+# ============================
+*.log
+*.tmp
+*.bak
+*.orig
+
+# ============================
+# Build / Packaging
+# ============================
+dist/
+build/
+*.egg-info/
+.eggs/
+*.whl
+
+# ============================
+# Local data (不要推送大数据文件)
+# ============================
+data/*.csv
+data/*.xlsx
+data/*.json
+
+# ============================
+# Frontend / Dash / Web
+# ============================
+assets/*.map
+node_modules/
+
+# ============================
+# Patch / Backup files
+# ============================
+patches/
+*.rej
