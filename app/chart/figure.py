@@ -78,8 +78,9 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
         tickformat="%Y-%m-%d", hoverformat="%Y-%m-%d"
     )
     fig.update_yaxes(
-        range=[ymin - pad, ymax + pad], showspikes=True, spikemode="across",
-        spikesnap="cursor", spikecolor="#aaa", spikethickness=1
+        range=[ymin - pad, ymax + pad], showspikes=True,
+        spikemode="across+toaxis", spikesnap="cursor",
+        spikecolor="#aaa", spikethickness=1
     )
     du = default_unit_local if default_unit_local is not None else unit
     fig.update_layout(
