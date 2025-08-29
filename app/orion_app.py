@@ -20,32 +20,48 @@ ANGLES = [1/8, 1/4, 1/3, 1/2, 1, 2, 3, 4, 8]  # relative to 1x1
 APP_TITLE = "Gann Angles – Interactive"
 # ====================
 
-# ---- load close series (robust to cn/en column names) ----
+# ---- load price & volume series (robust to cn/en column names) ----
 def _find_col(cands, cols):
     lower = {str(c).lower(): c for c in cols}
     for k in cands:
-        if k in cols: return k
+        if k in cols:
+            return k
         lk = str(k).lower()
-        if lk in lower: return lower[lk]
+        if lk in lower:
+            return lower[lk]
     for c in cols:
         for k in cands:
             if str(k).lower() in str(c).lower():
                 return c
     raise ValueError(f"Cannot find any of {cands} in columns: {list(cols)}")
 
-def load_close_series(path, sheet=0):
-    df = pd.read_excel(path, sheet_name=sheet)
-    dcol = _find_col(["date","Date","日期","交易日期","时间","time","Time"], df.columns)
-    ccol = _find_col(["close","Close","收盘","收盘价","收盘价格","收盘价(元)"], df.columns)
-    df = df[[dcol, ccol]].rename(columns={dcol:"date", ccol:"close"})
-    df["date"] = pd.to_datetime(df["date"])
-    df = df.dropna(subset=["date","close"]).sort_values("date").reset_index(drop=True)
-    s = df.set_index("date")["close"]
-    return s
 
-close = load_close_series(EXCEL_PATH, SHEET_NAME)
+def _extract_price_volume(df):
+    dcol = _find_col(["date", "Date", "日期", "交易日期", "时间", "time", "Time"], df.columns)
+    ccol = _find_col(["close", "Close", "收盘", "收盘价", "收盘价格", "收盘价(元)"], df.columns)
+    try:
+        vcol = _find_col(["volume", "Volume", "成交量", "VOL", "Vol"], df.columns)
+        cols = [dcol, ccol, vcol]
+        df = df[cols].rename(columns={dcol: "date", ccol: "close", vcol: "volume"})
+    except ValueError:
+        df = df[[dcol, ccol]].rename(columns={dcol: "date", ccol: "close"})
+        df["volume"] = 0.0
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.dropna(subset=["date", "close"]).sort_values("date").reset_index(drop=True)
+    close_s = df.set_index("date")["close"]
+    vol_s = df.set_index("date")["volume"].fillna(0.0)
+    return close_s, vol_s
+
+
+def load_price_volume(path, sheet=0):
+    df = pd.read_excel(path, sheet_name=sheet)
+    return _extract_price_volume(df)
+
+
+close, volume = load_price_volume(EXCEL_PATH, SHEET_NAME)
 ALL_DATES = close.index
 ALL_PRICES = close.values.astype(float)
+ALL_VOLUMES = volume.values.astype(float)
 N = len(close)
 
 def nearest_trading_day(ts: pd.Timestamp) -> pd.Timestamp:
@@ -60,20 +76,42 @@ def median_abs_close_delta(prices: np.ndarray) -> float:
         m = max(1.0, float(np.std(prices)/100.0))
     return float(m)
 
-def resample_series_by_tf(dates_list, prices_list, tf: str):
-    """Return (dates_array, prices_array) resampled by timeframe.
+def resample_series_by_tf(dates_list, prices_list, tf: str, volumes_list=None):
+    """Return resampled arrays by timeframe.
+
     D: daily (no change)
     W: weekly (last close of week, Friday anchored)
     M: monthly (last close of month)
+
+    If the latest bar does not align with the natural period end (e.g. the
+    current week or month has not finished), the returned series will use the
+    last available trading day as the endpoint instead of the calendar period
+    end so that the most recent partial period is still plotted.
     """
     s = pd.Series(np.asarray(prices_list, dtype=float), index=pd.DatetimeIndex(dates_list))
+    v = None
+    if volumes_list is not None:
+        v = pd.Series(np.asarray(volumes_list, dtype=float), index=pd.DatetimeIndex(dates_list))
+
     if tf == "W":
         sr = s.resample("W-FRI").last().dropna()
+        vr = v.resample("W-FRI").sum().dropna() if v is not None else None
     elif tf == "M":
-        sr = s.resample("M").last().dropna()
+        sr = s.resample("ME").last().dropna()
+        vr = v.resample("ME").sum().dropna() if v is not None else None
     else:
         sr = s.dropna()
-    return sr.index.to_numpy(), sr.values.astype(float)
+        vr = v.dropna() if v is not None else None
+
+    dates = sr.index.to_numpy()
+    if tf in ("W", "M") and len(dates) > 0:
+        last_orig = pd.DatetimeIndex(dates_list)[-1]
+        if dates[-1] > last_orig.to_datetime64():
+            dates[-1] = last_orig.to_datetime64()
+
+    if vr is not None:
+        return dates, sr.values.astype(float), vr.values.astype(float)
+    return dates, sr.values.astype(float)
 
 # ---- unit precision (4 decimals) ----
 DEC_PLACES = 4
@@ -107,18 +145,19 @@ SLIDER_MARKS = {
 #         "filename": filename,
 #         "default_unit": float(DEFAULT_UNIT)
 #     }
-def pack_series(dates_index, prices_array, filename):
+def pack_series(dates_index, prices_array, volumes_array, filename):
     du_raw = median_abs_close_delta(np.asarray(prices_array, dtype=float))
     du_disp = max(1.0 / SCALE, round(du_raw, DEC_PLACES))
     return {
         "dates": [pd.Timestamp(d).isoformat() for d in dates_index],
         "prices": [float(p) for p in prices_array],
+        "volumes": [float(v) for v in volumes_array],
         "filename": filename,
         "default_unit_raw": float(du_raw),
         "default_unit": float(du_disp)
     }
 
-DEFAULT_SERIES = pack_series(ALL_DATES, ALL_PRICES, EXCEL_PATH)
+DEFAULT_SERIES = pack_series(ALL_DATES, ALL_PRICES, ALL_VOLUMES, EXCEL_PATH)
 
 def parse_upload(contents, filename):
     """
@@ -131,21 +170,16 @@ def parse_upload(contents, filename):
     raw = base64.b64decode(b64)
     buf = io.BytesIO(raw)
     if filename.lower().endswith(".xlsx") or "spreadsheetml" in header:
-        s = load_close_series(buf, SHEET_NAME)
+        s, v = load_price_volume(buf, SHEET_NAME)
     else:
         # try CSV
         df = pd.read_csv(buf)
-        dcol = _find_col(["date","Date","日期","交易日期","时间","time","Time"], df.columns)
-        ccol = _find_col(["close","Close","收盘","收盘价","收盘价格","收盘价(元)"], df.columns)
-        df = df[[dcol, ccol]].rename(columns={dcol:"date", ccol:"close"})
-        df["date"] = pd.to_datetime(df["date"])
-        df = df.dropna(subset=["date","close"]).sort_values("date").reset_index(drop=True)
-        s = df.set_index("date")["close"]
+        s, v = _extract_price_volume(df)
     dates = s.index
     prices = s.values.astype(float)
     du_raw = median_abs_close_delta(prices)
     du_disp = max(1.0 / SCALE, round(du_raw, DEC_PLACES))
-    return s, du_raw, du_disp
+    return s, v, du_raw, du_disp
 
 # ===== Dash App =====
 app = dash.Dash(__name__)
@@ -347,9 +381,13 @@ def infer_direction_around(prices: np.ndarray, idx: int, window: int = 5) -> int
     right = prices[idx+1] if idx+1 < len(prices) else prices[idx]
     return -1 if prices[idx] > left and prices[idx] > right else +1
 
-def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dates=None, all_prices=None, default_unit_local=None):
-    if all_dates is None: all_dates = ALL_DATES
-    if all_prices is None: all_prices = ALL_PRICES
+def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dates=None, all_prices=None, all_volumes=None, default_unit_local=None):
+    if all_dates is None:
+        all_dates = ALL_DATES
+    if all_prices is None:
+        all_prices = ALL_PRICES
+    if all_volumes is None:
+        all_volumes = ALL_VOLUMES
     # enforce 4-decimal resolution for unit
     unit = round(float(unit), DEC_PLACES)
     # constrain to selected X range
@@ -358,6 +396,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
     mask = (all_dates >= start) & (all_dates <= end)
     dates = all_dates[mask]
     prices = all_prices[mask]
+    volumes = all_volumes[mask]
     n = len(dates)
     if n == 0:
         # empty range guard
@@ -375,14 +414,20 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
     fig = go.Figure()
 
     # price line
+    vol_ma = pd.Series(volumes).rolling(20).mean().fillna(0).to_numpy()
+    customdata = np.stack([
+        [pd.Timestamp(d).strftime("%Y-%m-%d") for d in dates],
+        volumes,
+        vol_ma
+    ], axis=-1)
     fig.add_trace(go.Scatter(
         x=bars,
         y=prices,
         mode="lines",
         name="Close",
         line=dict(width=1.5),
-        customdata=np.array([pd.Timestamp(d).strftime("%Y-%m-%d") for d in dates]),
-        hovertemplate="%{customdata}<br>Close=%{y:.4f}<extra></extra>",
+        customdata=customdata,
+        hovertemplate="%{customdata[0]}<br>Close=%{y:.4f}<br>Volume=%{customdata[1]:,.0f}<br>Avg20=%{customdata[2]:,.0f}<extra></extra>",
     ))
     # transparent marker layer to reliably capture clicks at each bar
     fig.add_trace(go.Scatter(
@@ -467,9 +512,16 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
     if tick_idx[-1] != n - 1:
         tick_idx.append(n - 1)
     tick_text = [pd.Timestamp(d).strftime("%Y-%m-%d") for d in dates[tick_idx]]
-    fig.update_xaxes(tickmode="array", tickvals=tick_idx, ticktext=tick_text, tickangle=20)
+    fig.update_xaxes(
+        tickmode="array", tickvals=tick_idx, ticktext=tick_text, tickangle=20,
+        showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
+        spikecolor="#aaa", spikethickness=1, side="top"
+    )
 
-    fig.update_yaxes(range=[ymin - pad, ymax + pad])
+    fig.update_yaxes(
+        range=[ymin - pad, ymax + pad], showspikes=True, spikemode="across+toaxis",
+        spikesnap="cursor", spikecolor="#aaa", spikethickness=1, side="right"
+    )
 
     du = DEFAULT_UNIT if default_unit_local is None else default_unit_local
 
@@ -478,9 +530,12 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
         xaxis_title="Date",
         yaxis_title="Price",
         title=f"1×1 unit = {unit:.4f} (median(|Δclose|) = {du:.4f})",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-        margin=dict(l=40, r=20, t=60, b=40),
-        clickmode="event+select"
+        showlegend=False,
+        margin=dict(l=20, r=40, t=60, b=40),
+        clickmode="event+select",
+        hovermode="x",
+        spikedistance=-1,
+        hoverdistance=0
     )
     return fig
 
@@ -704,11 +759,18 @@ def _update_graph(start_date, end_date, unit, bases, fan_dir, tf, data):
     # unpack series
     all_dates_daily = np.array([pd.Timestamp(x) for x in data["dates"]])
     all_prices_daily = np.array(data["prices"], dtype=float)
-    all_dates, all_prices = resample_series_by_tf(all_dates_daily, all_prices_daily, tf)
+    all_volumes_daily = np.array(data.get("volumes", [0]*len(all_dates_daily)), dtype=float)
+    resampled = resample_series_by_tf(all_dates_daily, all_prices_daily, tf, all_volumes_daily)
+    if len(resampled) == 3:
+        all_dates, all_prices, all_volumes = resampled
+    else:
+        all_dates, all_prices = resampled
+        all_volumes = np.zeros_like(all_prices)
     return build_figure(start_date, end_date, float(unit), bases,
                         fan_dir=fan_dir,
                         all_dates=all_dates,
                         all_prices=all_prices,
+                        all_volumes=all_volumes,
                         default_unit_local=float(data.get("default_unit", DEFAULT_UNIT)))
 
 @app.callback(
@@ -731,12 +793,13 @@ def _update_graph(start_date, end_date, unit, bases, fan_dir, tf, data):
 #     return data
 def _on_upload(contents, filename):
     try:
-        s, du_raw, du_disp = parse_upload(contents, filename)
-    except Exception as e:
+        s, v, du_raw, du_disp = parse_upload(contents, filename)
+    except Exception:
         raise dash.exceptions.PreventUpdate
     data = {
         "dates": [pd.Timestamp(d).isoformat() for d in s.index],
         "prices": [float(x) for x in s.values],
+        "volumes": [float(x) for x in v.reindex(s.index).values],
         "filename": filename,
         "default_unit_raw": float(du_raw),
         "default_unit": float(du_disp)
