@@ -12,3 +12,4 @@ def test_price_axis_spike_label():
                        all_volumes=volumes)
     assert fig.layout.yaxis.spikemode == 'across+toaxis'
     assert fig.layout.yaxis2.spikemode == 'across+toaxis'
+    assert fig.layout.margin.r == 80

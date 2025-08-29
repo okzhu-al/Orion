@@ -5,12 +5,18 @@ import numpy as np
 import pandas as pd
 import dash
 from dash import dcc, html, Input, Output, State, callback_context, no_update
+
+from dash.exceptions import PreventUpdate
+
 import plotly.graph_objects as go
 
 from app.data.loader import load_price_volume, _extract_price_volume
 from app.data.timeframe import resample_series_by_tf, nearest_trading_day_in
 from app.models.gann import ANGLES, DEC_PLACES, SCALE, median_abs_close_delta, compute_unit
 from app.chart.figure import build_figure
+
+from version import __version__
+
 
 EXCEL_PATH = "data/399006.xlsx"
 SHEET_NAME = 0
@@ -57,13 +63,13 @@ def parse_upload(contents, filename):
     return s, v, du_raw, du_disp
 
 app = dash.Dash(__name__)
-app.title = "江恩角度线 · 交互版"
+app.title = f"Orion v{__version__}"
 
 app.layout = html.Div(
     style={"fontFamily":"-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial",
            "padding":"16px", "maxWidth":"1200px", "margin":"0 auto"},
     children=[
-        html.H2("江恩角度线 · 交互版", style={"margin":"0 0 8px 0"}),
+        html.H2(f"Orion v{__version__}", style={"margin":"0 0 8px 0"}),
         html.Div(id="source-file", style={"color":"#555", "marginBottom":"10px"}),
         dcc.Upload(
             id="uploader",
@@ -381,3 +387,28 @@ def _click_add_base(clickData, bases, start_date, end_date, tf, data):
     bases = sorted(bases)
     label = "基点: " + ("，".join(bases) if bases else "无")
     return bases, label
+
+
+@app.callback(
+    Output("price-graph", "figure", allow_duplicate=True),
+    Input("price-graph", "hoverData"),
+    State("price-graph", "figure"),
+    prevent_initial_call=True,
+)
+def _hover_price_label(hoverData, fig_json):
+    if not hoverData:
+        raise PreventUpdate
+    y = hoverData["points"][0].get("y")
+    if y is None:
+        raise PreventUpdate
+    fig = go.Figure(fig_json)
+    fig.layout.annotations = [a for a in fig.layout.annotations if a.get("name") != "__y_price__"]
+    fig.add_annotation(dict(
+        x=1.0, xref="paper", xanchor="left",
+        y=y,   yref="y",     yanchor="middle",
+        text=f"{float(y):.4f}", showarrow=False,
+        bgcolor="rgba(255,255,255,0.95)",
+        bordercolor="#aaa", borderwidth=1, font=dict(size=12),
+        name="__y_price__"
+    ))
+    return fig
