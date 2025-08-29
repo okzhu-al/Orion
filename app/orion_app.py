@@ -108,7 +108,6 @@ def resample_series_by_tf(dates_list, prices_list, tf: str, volumes_list=None):
         last_orig = pd.DatetimeIndex(dates_list)[-1]
         if dates[-1] > last_orig.to_datetime64():
             dates[-1] = last_orig.to_datetime64()
-
     if vr is not None:
         return dates, sr.values.astype(float), vr.values.astype(float)
     return dates, sr.values.astype(float)
