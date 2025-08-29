@@ -1,3 +1,16 @@
-git add .github/workflows/dummy.yml
-git commit -m "add dummy GitHub Action for status check"
-git push origin main
+name: Dummy check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: {}
+
+jobs:
+  dummy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run dummy check
+        run: echo "ok"
