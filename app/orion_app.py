@@ -108,6 +108,7 @@ def resample_series_by_tf(dates_list, prices_list, tf: str, volumes_list=None):
         last_orig = pd.DatetimeIndex(dates_list)[-1]
         if dates[-1] > last_orig.to_datetime64():
             dates[-1] = last_orig.to_datetime64()
+
     if vr is not None:
         return dates, sr.values.astype(float), vr.values.astype(float)
     return dates, sr.values.astype(float)
@@ -414,23 +415,19 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
 
     # price line
     vol_ma = pd.Series(volumes).rolling(20).mean().fillna(0).to_numpy()
-    customdata = np.stack([
-        [pd.Timestamp(d).strftime("%Y-%m-%d") for d in dates],
-        volumes,
-        vol_ma
-    ], axis=-1)
+    customdata = np.stack([volumes, vol_ma], axis=-1)
     fig.add_trace(go.Scatter(
-        x=bars,
+        x=dates,
         y=prices,
         mode="lines",
         name="Close",
         line=dict(width=1.5),
         customdata=customdata,
-        hovertemplate="%{customdata[0]}<br>Close=%{y:.4f}<br>Volume=%{customdata[1]:,.0f}<br>Avg20=%{customdata[2]:,.0f}<extra></extra>",
+        hovertemplate="%{x|%Y-%m-%d}<br>Close=%{y:.4f}<br>Volume=%{customdata[0]:,.0f}<br>Avg20=%{customdata[1]:,.0f}<extra></extra>",
     ))
     # transparent marker layer to reliably capture clicks at each bar
     fig.add_trace(go.Scatter(
-        x=bars, y=prices,
+        x=dates, y=prices,
         mode="markers",
         marker=dict(size=12, color="rgba(0,0,0,0)", opacity=0.01),  # easier to click, nearly invisible
         hoverinfo="skip",
@@ -475,7 +472,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
                 # if completely outside, still draw the first point to indicate origin
                 mask_vis = np.zeros_like(y, dtype=bool)
                 mask_vis[0] = True
-            x_plot = bars[b_sel_idx:][mask_vis]
+            x_plot = dates[b_sel_idx:][mask_vis]
             y_plot = y[mask_vis]
 
             line_style = dict(width=1)
@@ -490,7 +487,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
                 hoverinfo="skip",
             ))
 
-        base_scatter_x.append(bars[b_sel_idx])
+        base_scatter_x.append(dates[b_sel_idx])
         base_scatter_y.append(b_px)
         base_scatter_date.append(pd.Timestamp(b).strftime("%Y-%m-%d"))
 
@@ -505,16 +502,11 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
             hovertemplate="%{customdata}<br>Base=%{y:.4f}<extra></extra>",
         ))
 
-    # X-axis ticks: show dates, keep bars as x-values
-    tick_step = max(1, n // 12)
-    tick_idx = list(range(0, n, tick_step))
-    if tick_idx[-1] != n - 1:
-        tick_idx.append(n - 1)
-    tick_text = [pd.Timestamp(d).strftime("%Y-%m-%d") for d in dates[tick_idx]]
+    # X-axis (dates)
     fig.update_xaxes(
-        tickmode="array", tickvals=tick_idx, ticktext=tick_text, tickangle=20,
-        showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
-        spikecolor="#aaa", spikethickness=1, side="top"
+        showspikes=True, spikemode="across+toaxis", spikesnap="data",
+        spikecolor="#aaa", spikethickness=1, side="top",
+        tickformat="%Y-%m-%d", hoverformat="%Y-%m-%d", tickangle=20
     )
 
     fig.update_yaxes(
@@ -534,7 +526,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir="auto", all_dat
         clickmode="event+select",
         hovermode="x",
         spikedistance=-1,
-        hoverdistance=0
+        hoverdistance=50
     )
     return fig
 
@@ -685,7 +677,7 @@ def _click_add_base(clickData, bases, start_date, end_date, tf, data):
     if x_val is None:
         raise dash.exceptions.PreventUpdate
     try:
-        bar_index = int(round(float(x_val)))
+        dt_clicked = pd.Timestamp(x_val)
     except Exception:
         raise dash.exceptions.PreventUpdate
     all_dates_daily = [pd.Timestamp(x) for x in data["dates"]]
@@ -696,7 +688,8 @@ def _click_add_base(clickData, bases, start_date, end_date, tf, data):
     dates = all_dates_tf[mask]
     if len(dates) == 0:
         raise dash.exceptions.PreventUpdate
-    bar_index = max(0, min(bar_index, len(dates)-1))
+    di = pd.DatetimeIndex(dates)
+    bar_index = di.get_indexer([dt_clicked], method="nearest")[0]
     dt = dates[bar_index]
     bases = set(bases or [])
     bases.add(str(pd.Timestamp(dt).date()))
