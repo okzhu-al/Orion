@@ -4,9 +4,8 @@ import json
 import numpy as np
 import pandas as pd
 import dash
-from dash import dcc, html, Input, Output, State, callback_context, no_update
 
-from dash.exceptions import PreventUpdate
+from dash import dcc, html, Input, Output, State, callback_context, no_update, exceptions
 
 import plotly.graph_objects as go
 
@@ -16,7 +15,6 @@ from app.models.gann import ANGLES, DEC_PLACES, SCALE, median_abs_close_delta, c
 from app.chart.figure import build_figure
 
 from version import __version__
-
 
 EXCEL_PATH = "data/399006.xlsx"
 SHEET_NAME = 0
@@ -341,7 +339,7 @@ def _on_upload(contents, filename):
     try:
         s, v, du_raw, du_disp = parse_upload(contents, filename)
     except Exception:
-        raise dash.exceptions.PreventUpdate
+        raise exceptions.PreventUpdate
     data = {
         "dates": [pd.Timestamp(d).isoformat() for d in s.index],
         "prices": [float(x) for x in s.values],
@@ -366,10 +364,10 @@ def _on_upload(contents, filename):
 )
 def _click_add_base(clickData, bases, start_date, end_date, tf, data):
     if not clickData:
-        raise dash.exceptions.PreventUpdate
+        raise exceptions.PreventUpdate
     x_val = clickData["points"][0].get("x")
     if x_val is None:
-        raise dash.exceptions.PreventUpdate
+        raise exceptions.PreventUpdate
     dt_clicked = pd.Timestamp(x_val)
     all_dates_daily = [pd.Timestamp(x) for x in data["dates"]]
     all_prices_daily = np.array(data["prices"], dtype=float)
@@ -378,7 +376,7 @@ def _click_add_base(clickData, bases, start_date, end_date, tf, data):
     mask = (all_dates_tf >= start) & (all_dates_tf <= end)
     dates = all_dates_tf[mask]
     if len(dates) == 0:
-        raise dash.exceptions.PreventUpdate
+        raise exceptions.PreventUpdate
     di = pd.DatetimeIndex(dates)
     bar_index = di.get_indexer([dt_clicked], method="nearest")[0]
     dt = dates[bar_index]
@@ -397,18 +395,40 @@ def _click_add_base(clickData, bases, start_date, end_date, tf, data):
 )
 def _hover_price_label(hoverData, fig_json):
     if not hoverData:
-        raise PreventUpdate
-    y = hoverData["points"][0].get("y")
+        raise exceptions.PreventUpdate
+
+    # 读取鼠标所在 y 值
+    y = hoverData["points"][0].get("y", None)
     if y is None:
-        raise PreventUpdate
+        raise exceptions.PreventUpdate
+
+    # 还原图对象
     fig = go.Figure(fig_json)
-    fig.layout.annotations = [a for a in fig.layout.annotations if a.get("name") != "__y_price__"]
-    fig.add_annotation(dict(
+
+    # 安全获取现有注解列表（Annotation 对象）
+    anns = list(fig.layout.annotations) if fig.layout.annotations else []
+
+    # 移除旧的价格浮窗（按 name 标识）
+    anns = [a for a in anns if getattr(a, "name", None) != "__y_price__"]
+
+    # 新的价格浮窗（贴右侧轴，随 y 改变）
+    new_ann = dict(
         x=1.0, xref="paper", xanchor="left",
         y=y,   yref="y",     yanchor="middle",
-        text=f"{float(y):.4f}", showarrow=False,
+        text=f"{y:.4f}",
+        showarrow=False,
         bgcolor="rgba(255,255,255,0.95)",
-        bordercolor="#aaa", borderwidth=1, font=dict(size=12),
-        name="__y_price__"
-    ))
+        bordercolor="#aaa", borderwidth=1,
+        font=dict(size=12),
+        name="__y_price__",
+    )
+    anns.append(new_ann)
+
+    # 更新注解与右侧留白
+    fig.update_layout(annotations=anns)
+    m = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
+    if m.get("r", 40) < 80:
+        fig.update_layout(margin=dict(l=m.get("l", 20), r=80, t=m.get("t", 60), b=m.get("b", 40)))
+
+
     return fig
