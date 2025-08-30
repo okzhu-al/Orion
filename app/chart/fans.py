@@ -20,9 +20,9 @@ def build_gann_traces(dates: Iterable[pd.Timestamp], prices: Iterable[float],
         if len(idx_arr) == 0:
             continue
         b_idx = int(idx_arr[0])
-        b_price = prices[b_idx]
-        x_plot = dates[b_idx:]
-        bars_rel = np.arange(len(x_plot), dtype=float)
+        b_price = float(prices[b_idx])
+        x_plot_full = dates[b_idx:]
+        bars_rel = np.arange(len(x_plot_full), dtype=float)
         if dir_mode == "up":
             dir_sign = +1
         elif dir_mode == "down":
@@ -30,19 +30,18 @@ def build_gann_traces(dates: Iterable[pd.Timestamp], prices: Iterable[float],
         else:
             dir_sign = infer_direction_around(prices, b_idx, window=5)
         for a in angles:
-            slope = dir_sign * a * unit
-            y = b_price + slope * bars_rel
-            y_low = ymin - pad
-            y_high = ymax + pad
+            slope_per_bar = dir_sign * float(a) * float(unit)
+            y = b_price + slope_per_bar * bars_rel
+            y_low, y_high = ymin - pad, ymax + pad
             mask = (y >= y_low) & (y <= y_high)
             if not np.any(mask):
                 mask = np.zeros_like(y, dtype=bool)
                 mask[0] = True
             trace = go.Scatter(
-                x=x_plot[mask],
+                x=x_plot_full[mask],
                 y=y[mask],
                 mode="lines",
-                line=dict(width=1, dash="dash" if a != 1 else None),
+                line=dict(width=1, dash=None if a == 1 else "dash"),
                 hoverinfo="skip",
                 name=f"Gann {a if a>=1 else 1:.0f}x{1 if a>=1 else int(round(1/a))} ({b.date()})"
             )
