@@ -17,7 +17,10 @@ from version import __version__
 EXCEL_PATH = "data/399006.xlsx"
 SHEET_NAME = 0
 
-GRAPH_EVENTS = [{"event": "plotly_hover", "props": ["event", "points"]}]
+GRAPH_EVENTS = [
+    {"event": "plotly_mousemove", "props": ["event"]},
+    {"event": "plotly_unhover", "props": ["event"]},
+]
 
 close_s, vol_s = load_price_volume(EXCEL_PATH, SHEET_NAME)
 ALL_DATES = close_s.index
@@ -411,24 +414,22 @@ def _click_add_base(clickData, bases, start_date, end_date, tf, data):
     prevent_initial_call=True,
 )
 def _update_price_label(dataY, fig_json):
-    if dataY is None:
-        raise exceptions.PreventUpdate
-
     fig = go.Figure(fig_json)
 
     anns = list(fig.layout.annotations) if fig.layout.annotations else []
     anns = [a for a in anns if getattr(a, "name", None) != "__y_price__"]
 
-    anns.append(dict(
-        x=1.0, xref="paper", xanchor="left",
-        y=float(dataY), yref="y", yanchor="middle",
-        text=f"{float(dataY):.4f}",
-        showarrow=False,
-        bgcolor="rgba(255,255,255,0.95)",
-        bordercolor="#aaa", borderwidth=1,
-        font=dict(size=12),
-        name="__y_price__",
-    ))
+    if dataY is not None:
+        anns.append(dict(
+            x=1.0, xref="paper", xanchor="left",
+            y=float(dataY), yref="y", yanchor="middle",
+            text=f"{float(dataY):.4f}",
+            showarrow=False,
+            bgcolor="rgba(255,255,255,0.95)",
+            bordercolor="#aaa", borderwidth=1,
+            font=dict(size=12),
+            name="__y_price__",
+        ))
 
     fig.update_layout(annotations=anns)
     m = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
