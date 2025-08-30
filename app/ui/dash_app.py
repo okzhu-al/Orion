@@ -90,9 +90,6 @@ app.layout = html.Div(
                    "textAlign":"center","marginBottom":"16px","background":"#fafafa"}
         ),
         dcc.Store(id="series-store", data=DEFAULT_SERIES),
-        # track cursor y-values for server-side price labels
-        dcc.Store(id="cursor-y-store", data=None),
-
         html.Div(style={"display":"grid", "gridTemplateColumns":"1fr 1fr 1fr", "gap":"16px"}, children=[
             html.Div([
                 html.Label("时间范围"),
@@ -196,6 +193,8 @@ app.layout = html.Div(
             config={"displaylogo": False, "modeBarButtonsToAdd": ["drawopenpath","eraseshape"]},
             style={"height":"620px"}
         ),
+        # track cursor y-values for server-side price labels
+        dcc.Store(id="cursor-y-store", data=None),
         dcc.Store(id="xrange-store", data=None),
     ]
 )
