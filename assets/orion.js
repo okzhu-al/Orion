@@ -1,4 +1,5 @@
 window.orion = window.orion || {};
+// Convert cursor Y position (in pixels) to chart data value for price label
 window.orion.cursorYtoData = function(evt, fig) {
   if (!evt) { return window.dash_clientside.no_update; }
   if (evt.type === "plotly_unhover") { return null; }
