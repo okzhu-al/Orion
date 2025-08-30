@@ -31,8 +31,8 @@ EXCEL_PATH = "data/399006.xlsx"
 SHEET_NAME = 0
 
 GRAPH_EVENTS = [
-    {"event": "plotly_mousemove", "props": ["event"]},
-    {"event": "plotly_unhover", "props": ["event"]},
+    {"event": "plotly_mousemove", "props": ["event", "type"]},
+    {"event": "plotly_unhover", "props": ["event", "type"]},
 ]
 
 close_s, vol_s = load_price_volume(EXCEL_PATH, SHEET_NAME)

@@ -5,7 +5,9 @@ window.orion.cursorYtoData = function(evt, fig) {
   if (evt.type === "plotly_unhover") { return null; }
   if (!evt.event) { return window.dash_clientside.no_update; }
 
-  const gd = document.getElementById("price-graph");
+  const container = document.getElementById("price-graph");
+  if (!container) { return window.dash_clientside.no_update; }
+  const gd = container.getElementsByClassName("js-plotly-plot")[0] || container;
   if (!gd || !gd._fullLayout) { return window.dash_clientside.no_update; }
 
   const clientY = evt.event.clientY;
