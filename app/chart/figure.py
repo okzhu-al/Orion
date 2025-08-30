@@ -102,14 +102,6 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
             showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
             spikecolor="#aaa", spikethickness=1,
             tickformat="%Y-%m-%d", hoverformat="%Y-%m-%d"
-        ),
-        yaxis2=dict(
-            matches="y", overlaying="y", side="right",
-            showgrid=False, showline=False, zeroline=False,
-            tickmode="array", tickvals=[], ticks="",
-            showticklabels=True,
-            showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
-            spikecolor="#aaa", spikethickness=1
         )
     )
     return fig

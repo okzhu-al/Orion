@@ -4,7 +4,8 @@ import json
 import numpy as np
 import pandas as pd
 import dash
-from dash import dcc, html, Input, Output, State, callback_context, no_update, exceptions
+from dash import dcc, html, Input, Output, State, callback_context, no_update, exceptions, clientside_callback, ClientsideFunction
+from dash_extensions import EventListener
 import plotly.graph_objects as go
 
 from app.data.loader import load_price_volume, _extract_price_volume
@@ -15,6 +16,8 @@ from version import __version__
 
 EXCEL_PATH = "data/399006.xlsx"
 SHEET_NAME = 0
+
+GRAPH_EVENTS = [{"event": "plotly_hover", "props": ["event"]}]
 
 close_s, vol_s = load_price_volume(EXCEL_PATH, SHEET_NAME)
 ALL_DATES = close_s.index
@@ -174,8 +177,17 @@ app.layout = html.Div(
         dcc.Store(id="bases-store", data=[]),
 
         html.Hr(),
-        dcc.Graph(id="price-graph", config={"displaylogo": False, "modeBarButtonsToAdd": ["drawopenpath","eraseshape"]}, style={"height":"620px"}),
+        EventListener(
+            id="graph-events",
+            events=GRAPH_EVENTS,
+            children=dcc.Graph(
+                id="price-graph",
+                config={"displaylogo": False, "modeBarButtonsToAdd": ["drawopenpath","eraseshape"]},
+                style={"height":"620px"}
+            ),
+        ),
         dcc.Store(id="xrange-store", data=None),
+        dcc.Store(id="cursor-y-store", data=None),
     ]
 )
 
@@ -192,6 +204,14 @@ def str_to_dates_list(s: str):
             pass
     return out
 
+
+clientside_callback(
+    ClientsideFunction(namespace="orion", function_name="cursorYtoData"),
+    Output("cursor-y-store", "data"),
+    Input("graph-events", "event"),
+    State("price-graph", "figure"),
+    prevent_initial_call=True,
+)
 
 @app.callback(
     Output("date-range", "min_date_allowed"),
@@ -386,42 +406,30 @@ def _click_add_base(clickData, bases, start_date, end_date, tf, data):
 
 @app.callback(
     Output("price-graph", "figure", allow_duplicate=True),
-    Input("price-graph", "hoverData"),
+    Input("cursor-y-store", "data"),
     State("price-graph", "figure"),
     prevent_initial_call=True,
 )
-def _hover_price_label(hoverData, fig_json):
-    if not hoverData:
+def _update_price_label(dataY, fig_json):
+    if dataY is None:
         raise exceptions.PreventUpdate
 
-    # 读取鼠标所在 y 值
-    y = hoverData["points"][0].get("y", None)
-    if y is None:
-        raise exceptions.PreventUpdate
-
-    # 还原图对象
     fig = go.Figure(fig_json)
 
-    # 安全获取现有注解列表（Annotation 对象）
     anns = list(fig.layout.annotations) if fig.layout.annotations else []
-
-    # 移除旧的价格浮窗（按 name 标识）
     anns = [a for a in anns if getattr(a, "name", None) != "__y_price__"]
 
-    # 新的价格浮窗（贴右侧轴，随 y 改变）
-    new_ann = dict(
+    anns.append(dict(
         x=1.0, xref="paper", xanchor="left",
-        y=y,   yref="y",     yanchor="middle",
-        text=f"{y:.4f}",
+        y=float(dataY), yref="y", yanchor="middle",
+        text=f"{float(dataY):.4f}",
         showarrow=False,
         bgcolor="rgba(255,255,255,0.95)",
         bordercolor="#aaa", borderwidth=1,
         font=dict(size=12),
         name="__y_price__",
-    )
-    anns.append(new_ann)
+    ))
 
-    # 更新注解与右侧留白
     fig.update_layout(annotations=anns)
     m = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
     if m.get("r", 40) < 80:
