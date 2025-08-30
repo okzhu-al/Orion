@@ -1,6 +1,5 @@
 import base64
 import io
-import json
 from pathlib import Path
 
 import numpy as np
@@ -15,10 +14,7 @@ from dash import (
     callback_context,
     no_update,
     exceptions,
-    clientside_callback,
-    ClientsideFunction,
 )
-from dash_extensions import EventListener
 import plotly.graph_objects as go
 
 from app.data.loader import load_price_volume, _extract_price_volume
@@ -29,11 +25,6 @@ from version import __version__
 
 EXCEL_PATH = "data/399006.xlsx"
 SHEET_NAME = 0
-
-GRAPH_EVENTS = [
-    {"event": "plotly_mousemove", "props": ["event", "type"]},
-    {"event": "plotly_unhover", "props": ["event", "type"]},
-]
 
 close_s, vol_s = load_price_volume(EXCEL_PATH, SHEET_NAME)
 ALL_DATES = close_s.index
@@ -198,14 +189,10 @@ app.layout = html.Div(
         dcc.Store(id="bases-store", data=[]),
 
         html.Hr(),
-        EventListener(
-            id="graph-events",
-            events=GRAPH_EVENTS,
-            children=dcc.Graph(
-                id="price-graph",
-                config={"displaylogo": False, "modeBarButtonsToAdd": ["drawopenpath","eraseshape"]},
-                style={"height":"620px"}
-            ),
+        dcc.Graph(
+            id="price-graph",
+            config={"displaylogo": False, "modeBarButtonsToAdd": ["drawopenpath","eraseshape"]},
+            style={"height":"620px"}
         ),
         dcc.Store(id="xrange-store", data=None),
         dcc.Store(id="cursor-y-store", data=None),
@@ -224,15 +211,6 @@ def str_to_dates_list(s: str):
         except Exception:
             pass
     return out
-
-
-clientside_callback(
-    ClientsideFunction(namespace="orion", function_name="cursorYtoData"),
-    Output("cursor-y-store", "data"),
-    Input("graph-events", "event"),
-    State("price-graph", "figure"),
-    prevent_initial_call=True,
-)
 
 @app.callback(
     Output("date-range", "min_date_allowed"),
