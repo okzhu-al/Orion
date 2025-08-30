@@ -432,6 +432,9 @@ def _click_add_base(clickData, bases, start_date, end_date, tf, data):
     prevent_initial_call=True,
 )
 def _update_price_label(dataY, fig_json):
+    import plotly.graph_objects as go
+    if fig_json is None:
+        raise exceptions.PreventUpdate
     fig = go.Figure(fig_json)
 
     anns = list(fig.layout.annotations) if fig.layout.annotations else []
@@ -450,6 +453,7 @@ def _update_price_label(dataY, fig_json):
         ))
 
     fig.update_layout(annotations=anns)
+
     m = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
     if m.get("r", 40) < 80:
         fig.update_layout(margin=dict(l=m.get("l", 20), r=80, t=m.get("t", 60), b=m.get("b", 40)))
