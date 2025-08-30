@@ -1,0 +1,17 @@
+name: Dummy check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: {}
+
+jobs:
+  dummy:
+    name: Dummy check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run dummy check
+        run: echo "ok"
