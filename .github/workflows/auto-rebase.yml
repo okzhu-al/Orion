@@ -1,0 +1,103 @@
+name: Auto Rebase PR onto main
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebase:
+    # 仅对“同仓库”的分支尝试强推；来自 fork 的分支无法推回
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR head branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Setup git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch main
+        run: git fetch origin main --depth=0
+
+      - name: Skip if already up to date
+        id: uptodate
+        shell: bash
+        run: |
+          set -e
+          # 当前分支与 origin/main 的共同祖先
+          BASE=$(git merge-base HEAD origin/main)
+          # 如果祖先 == main 当前指针，说明 PR 分支已经基于最新 main
+          if [ "$BASE" = "$(git rev-parse origin/main)" ]; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Rebase onto main
+        if: steps.uptodate.outputs.already == 'false'
+        id: do_rebase
+        shell: bash
+        run: |
+          set -e
+          if git rebase origin/main; then
+            echo "rebased=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rebased=false" >> "$GITHUB_OUTPUT"
+            git rebase --abort
+            exit 1
+          fi
+
+      - name: Push back (force-with-lease)
+        if: steps.do_rebase.outputs.rebased == 'true'
+        run: |
+          git push --force-with-lease origin HEAD:${{ github.event.pull_request.head.ref }}
+
+      - name: Comment: already up to date (optional)
+        if: steps.uptodate.outputs.already == 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ✅ This PR branch is already up to date with `main`.
+
+      - name: Comment: rebase success (optional)
+        if: steps.do_rebase.outputs.rebased == 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ✅ Auto-rebased this branch onto `main` and force-pushed with lease.
+
+  fork_notice:
+    # 对来自 fork 的 PR 给出提示（没有推回权限）
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment for fork PR
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ⚠️ This PR comes from a fork. Auto-rebase cannot push to the branch.
+            Please rebase locally and push:
+            ```bash
+            git fetch origin
+            git checkout ${{ github.event.pull_request.head.ref }}
+            git rebase upstream/main   # or origin/main depending on your remote
+            git push -f
+            ```
