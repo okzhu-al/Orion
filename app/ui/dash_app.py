@@ -194,8 +194,8 @@ app.layout = html.Div(
             config={"displaylogo": False, "modeBarButtonsToAdd": ["drawopenpath","eraseshape"]},
             style={"height":"620px"}
         ),
-        dcc.Store(id="xrange-store", data=None),
         dcc.Store(id="cursor-y-store", data=None),
+        dcc.Store(id="xrange-store", data=None),
     ]
 )
 
