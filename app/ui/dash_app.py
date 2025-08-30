@@ -1,10 +1,23 @@
 import base64
 import io
 import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import dash
-from dash import dcc, html, Input, Output, State, callback_context, no_update, exceptions, clientside_callback, ClientsideFunction
+from dash import (
+    dcc,
+    html,
+    Input,
+    Output,
+    State,
+    callback_context,
+    no_update,
+    exceptions,
+    clientside_callback,
+    ClientsideFunction,
+)
 from dash_extensions import EventListener
 import plotly.graph_objects as go
 
@@ -63,7 +76,12 @@ def parse_upload(contents, filename):
     du_disp = max(1.0 / SCALE, round(du_raw, DEC_PLACES))
     return s, v, du_raw, du_disp
 
-app = dash.Dash(__name__)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+app = dash.Dash(
+    __name__,
+    assets_folder=str(PROJECT_ROOT / "assets"),
+    assets_url_path="/assets",
+)
 app.title = f"Orion v{__version__}"
 
 app.layout = html.Div(
