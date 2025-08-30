@@ -11,5 +11,5 @@ def test_price_axis_spike_label():
                        fan_dir=1, all_dates=dates, all_prices=prices,
                        all_volumes=volumes)
     assert fig.layout.yaxis.spikemode == 'across+toaxis'
-    assert ('yaxis2' not in fig.layout) or (not fig.layout.yaxis2.showspikes)
+    assert fig.layout.yaxis2.showspikes
     assert fig.layout.margin.r == 80

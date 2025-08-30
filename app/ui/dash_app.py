@@ -17,7 +17,7 @@ from version import __version__
 EXCEL_PATH = "data/399006.xlsx"
 SHEET_NAME = 0
 
-GRAPH_EVENTS = [{"event": "plotly_hover", "props": ["event"]}]
+GRAPH_EVENTS = [{"event": "plotly_hover", "props": ["event", "points"]}]
 
 close_s, vol_s = load_price_volume(EXCEL_PATH, SHEET_NAME)
 ALL_DATES = close_s.index
