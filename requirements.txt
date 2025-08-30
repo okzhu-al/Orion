@@ -3,3 +3,4 @@ plotly>=5.22,<6
 pandas>=2.2
 numpy>=1.26
 openpyxl>=3.1
+dash-extensions>=1.0.0
