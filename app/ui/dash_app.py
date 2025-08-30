@@ -430,7 +430,10 @@ def _update_price_label(dataY, fig_json):
             name="__y_price__",
         ))
 
-    fig.update_layout(annotations=anns)
+    if anns:
+        fig.update_layout(annotations=anns)
+    else:
+        fig.layout.annotations = ()
 
     m = fig.layout.margin.to_plotly_json() if fig.layout.margin else {}
     if m.get("r", 40) < 80:
