@@ -19,20 +19,24 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
     if len(dates) == 0:
         return go.Figure()
 
+    bars = np.arange(len(dates), dtype=float)
     fig = go.Figure()
     vol_ma = pd.Series(volumes).rolling(20).mean().fillna(0).to_numpy()
-    customdata = np.stack([volumes, vol_ma], axis=-1)
+    customdata = np.empty((len(bars), 3), dtype=object)
+    customdata[:, 0] = dates
+    customdata[:, 1] = volumes
+    customdata[:, 2] = vol_ma
     fig.add_trace(go.Scatter(
-        x=dates,
+        x=bars,
         y=prices,
         mode="lines",
         name="收盘",
         line=dict(width=1.5),
         customdata=customdata,
-        hovertemplate="%{x|%Y-%m-%d}<br>收盘=%{y:.4f}<br>成交量=%{customdata[0]:,.0f}<br>均量20=%{customdata[1]:,.0f}<extra></extra>",
+        hovertemplate="%{customdata[0]|%Y-%m-%d}<br>收盘=%{y:.4f}<br>成交量=%{customdata[1]:,.0f}<br>均量20=%{customdata[2]:,.0f}<extra></extra>",
     ))
     fig.add_trace(go.Scatter(
-        x=dates,
+        x=bars,
         y=prices,
         mode="markers",
         marker=dict(size=12, color="rgba(0,0,0,0)", opacity=0.01),
@@ -53,7 +57,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
             continue
         idx = int(idx[0])
         snap_bases.append(b)
-        base_x.append(dates[idx])
+        base_x.append(bars[idx])
         base_y.append(prices[idx])
         base_dates_str.append(pd.Timestamp(b).strftime("%Y-%m-%d"))
 
@@ -72,10 +76,12 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
             hovertemplate="%{customdata}<br>Base=%{y:.4f}<extra></extra>",
         ))
 
+    date_text = [pd.Timestamp(d).strftime("%Y-%m-%d") for d in dates]
     fig.update_xaxes(
         showspikes=True, spikemode="across", spikesnap="data",
         spikecolor="#aaa", spikethickness=1,
-        tickformat="%Y-%m-%d", hoverformat="%Y-%m-%d"
+        tickmode="array", tickvals=bars, ticktext=date_text,
+        hoverformat="%Y-%m-%d"
     )
     fig.update_yaxes(
         range=[ymin - pad, ymax + pad], showspikes=True,
@@ -97,11 +103,11 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
         xaxis2=dict(
             matches="x", overlaying="x", side="top",
             showgrid=False, showline=False, zeroline=False,
-            tickmode="array", tickvals=[], ticks="",
+            tickmode="array", tickvals=bars, ticktext=date_text, ticks="",
             showticklabels=True,
             showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
             spikecolor="#aaa", spikethickness=1,
-            tickformat="%Y-%m-%d", hoverformat="%Y-%m-%d"
+            hoverformat="%Y-%m-%d"
         ),
         yaxis2=dict(
             matches="y", overlaying="y", side="right",

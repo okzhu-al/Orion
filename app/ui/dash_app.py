@@ -384,17 +384,15 @@ def _click_add_base(clickData, bases, start_date, end_date, tf, data):
     x_val = clickData["points"][0].get("x")
     if x_val is None:
         raise exceptions.PreventUpdate
-    dt_clicked = pd.Timestamp(x_val)
+    bar_index = int(round(float(x_val)))
     all_dates_daily = [pd.Timestamp(x) for x in data["dates"]]
     all_prices_daily = np.array(data["prices"], dtype=float)
     all_dates_tf, _ = resample_series_by_tf(all_dates_daily, all_prices_daily, tf)
     start = pd.Timestamp(start_date); end = pd.Timestamp(end_date)
     mask = (all_dates_tf >= start) & (all_dates_tf <= end)
     dates = all_dates_tf[mask]
-    if len(dates) == 0:
+    if len(dates) == 0 or bar_index < 0 or bar_index >= len(dates):
         raise exceptions.PreventUpdate
-    di = pd.DatetimeIndex(dates)
-    bar_index = di.get_indexer([dt_clicked], method="nearest")[0]
     dt = dates[bar_index]
     bases = set(bases or [])
     bases.add(str(pd.Timestamp(dt).date()))

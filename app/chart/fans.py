@@ -13,6 +13,7 @@ def build_gann_traces(dates: Iterable[pd.Timestamp], prices: Iterable[float],
                       ymin: float = 0.0, ymax: float = 1.0, pad: float = 0.0) -> List[go.Scatter]:
     dates = pd.DatetimeIndex(dates)
     prices = np.asarray(prices, dtype=float)
+    bars = np.arange(len(dates), dtype=float)
     traces = []
     for b in bases:
         b = nearest_trading_day_in(dates, pd.Timestamp(b))
@@ -21,7 +22,7 @@ def build_gann_traces(dates: Iterable[pd.Timestamp], prices: Iterable[float],
             continue
         b_idx = int(idx_arr[0])
         b_price = float(prices[b_idx])
-        x_plot_full = dates[b_idx:]
+        x_plot_full = bars[b_idx:]
         bars_rel = np.arange(len(x_plot_full), dtype=float)
         if dir_mode == "up":
             dir_sign = +1
