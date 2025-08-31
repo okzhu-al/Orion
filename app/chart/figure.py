@@ -76,12 +76,24 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
             hovertemplate="%{customdata}<br>Base=%{y:.4f}<extra></extra>",
         ))
 
-    date_text = [pd.Timestamp(d).strftime("%Y-%m-%d") for d in dates]
+    # Downsample x-axis ticks to avoid freezing when there are many bars
+    max_ticks = 30
+    n_bars = len(bars)
+    if n_bars <= max_ticks:
+        tick_idx = np.arange(n_bars, dtype=int)
+    else:
+        step = int(np.ceil(n_bars / max_ticks))
+        tick_idx = np.arange(0, n_bars, step, dtype=int)
+        if tick_idx[-1] != n_bars - 1:
+            tick_idx = np.append(tick_idx, n_bars - 1)
+
+    tick_vals = tick_idx
+    tick_text = [pd.Timestamp(dates[i]).strftime("%Y-%m-%d") for i in tick_idx]
+
     fig.update_xaxes(
         showspikes=True, spikemode="across", spikesnap="data",
         spikecolor="#aaa", spikethickness=1,
-        tickmode="array", tickvals=bars, ticktext=date_text,
-        hoverformat="%Y-%m-%d"
+        tickmode="array", tickvals=tick_vals, ticktext=tick_text
     )
     fig.update_yaxes(
         range=[ymin - pad, ymax + pad], showspikes=True,
@@ -103,7 +115,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
         xaxis2=dict(
             matches="x", overlaying="x", side="top",
             showgrid=False, showline=False, zeroline=False,
-            tickmode="array", tickvals=bars, ticktext=date_text, ticks="",
+            tickmode="array", tickvals=tick_vals, ticktext=tick_text, ticks="",
             showticklabels=True,
             showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
             spikecolor="#aaa", spikethickness=1,
