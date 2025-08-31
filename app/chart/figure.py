@@ -73,6 +73,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
         ))
 
     fig.update_xaxes(
+        type="category",
         showspikes=True, spikemode="across", spikesnap="data",
         spikecolor="#aaa", spikethickness=1,
         tickformat="%Y-%m-%d", hoverformat="%Y-%m-%d"
@@ -95,6 +96,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
         spikedistance=-1,
         hoverdistance=50,
         xaxis2=dict(
+            type="category",
             matches="x", overlaying="x", side="top",
             showgrid=False, showline=False, zeroline=False,
             tickmode="array", tickvals=[], ticks="",
