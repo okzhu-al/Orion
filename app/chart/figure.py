@@ -20,10 +20,11 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
         return go.Figure()
 
     bars = np.arange(len(dates), dtype=float)
+    date_text = [pd.Timestamp(d).strftime("%Y-%m-%d") for d in dates]
     fig = go.Figure()
     vol_ma = pd.Series(volumes).rolling(20).mean().fillna(0).to_numpy()
     customdata = np.empty((len(bars), 3), dtype=object)
-    customdata[:, 0] = dates
+    customdata[:, 0] = date_text
     customdata[:, 1] = volumes
     customdata[:, 2] = vol_ma
     fig.add_trace(go.Scatter(
@@ -33,7 +34,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
         name="收盘",
         line=dict(width=1.5),
         customdata=customdata,
-        hovertemplate="%{customdata[0]|%Y-%m-%d}<br>收盘=%{y:.4f}<br>成交量=%{customdata[1]:,.0f}<br>均量20=%{customdata[2]:,.0f}<extra></extra>",
+        hovertemplate="%{customdata[0]}<br>收盘=%{y:.4f}<br>成交量=%{customdata[1]:,.0f}<br>均量20=%{customdata[2]:,.0f}<extra></extra>",
     ))
     fig.add_trace(go.Scatter(
         x=bars,
@@ -117,7 +118,7 @@ def build_figure(start_date, end_date, unit, base_dates, fan_dir,
             showgrid=False, showline=False, zeroline=False,
             tickmode="array", tickvals=tick_vals, ticktext=tick_text, ticks="",
             showticklabels=True,
-            showspikes=True, spikemode="across+toaxis", spikesnap="cursor",
+            showspikes=True, spikemode="across+toaxis", spikesnap="data",
             spikecolor="#aaa", spikethickness=1,
             hoverformat="%Y-%m-%d"
         ),
